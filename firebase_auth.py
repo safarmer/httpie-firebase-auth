@@ -16,6 +16,11 @@ class FirebaseAuthPlugin(AuthPlugin):
     name = 'Firebase Auth'
     auth_type = 'firebase'
     description = 'Add Firebase JWT tokens to requests'
+    auth_parse = False
+    auth_require = False
+
+    def __init__(self):
+        pass
 
     def get_auth(self, username=None, password=None):
         parts = self.raw_auth.split(':')
