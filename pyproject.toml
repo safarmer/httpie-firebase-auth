@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "httpie-firebase-auth"
+version = "0.5.0"
+description = "An auth plugin for HTTPie that authenticates a user against Firebase"
+readme = "README.md"
+repository = "https://github.com/safarmer/httpie-firebase-auth"
+authors = ["Shane Farmer <shane@secondbest.info>"]
+license = "MIT"
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: BSD License",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development",
+    "Topic :: System :: Networking",
+    "Topic :: Terminals",
+    "Topic :: Text Processing",
+    "Topic :: Utilities",
+]
+
+[tool.poetry.dependencies]
+python = ">= 3.7, < 4"
+httpie = "^3.2.1"
+google-auth = "^2.9.1"
+requests = "^2.28.1"
+
+[tool.poetry.dev-dependencies]
+
+[tool.poetry.plugins."httpie.plugins.auth.v1"]
+httpie_firebase_auth = "httpie_firebase_auth:FirebaseAuthPlugin"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="ProjectModuleManager">
-    <modules>
-      <module fileurl="file://$PROJECT_DIR$/httpie-firebase-auth.iml" filepath="$PROJECT_DIR$/httpie-firebase-auth.iml" />
-      <module fileurl="file://$USER_HOME$/PycharmProjects/image-classification/.idea/image-classification.iml" filepath="$USER_HOME$/PycharmProjects/image-classification/.idea/image-classification.iml" />
-    </modules>
-  </component>
-</project>
