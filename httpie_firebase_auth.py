@@ -11,7 +11,6 @@ import requests
 from httpie.config import get_default_config_dir
 from httpie.plugins import AuthPlugin
 
-
 __version__ = "0.4.0"
 __author__ = "Shane Farmer"
 
@@ -38,7 +37,7 @@ class Credential:
         return now > expire
 
 
-class FirebaseAuth:
+class FirebaseAuthenticator:
     def __init__(self, email: str, password: str, project: str = None):
         self._email = email
         self._password = password
@@ -51,7 +50,7 @@ class FirebaseAuth:
 
     def __call__(self, req: requests.PreparedRequest) -> requests.PreparedRequest:
         try:
-            (project, api_key) = self._get_api_key(req)
+            (project, api_key) = self.__get_api_key(req)
             cache_file = os.path.join(self._cache_dir, "%s.json" % project)
 
             user: Optional[Credential] = None
@@ -64,12 +63,12 @@ class FirebaseAuth:
 
             if not user:
                 logging.info(f">>> Firebase: authenticating user with email and password")
-                user = self._authenticate(api_key)
+                user = self.__authenticate(api_key)
                 if user:
                     self.__write_user(cache_file, user)
             elif user.expired:
                 logging.warning(f">>> Firebase: id token has expired, refreshing")
-                user = self._refesh(api_key, user)
+                user = self.__refresh_token(api_key, user)
                 if user:
                     self.__write_user(cache_file, user)
 
@@ -96,7 +95,7 @@ class FirebaseAuth:
             contents[user.email] = asdict(user)
             file.write(json.dumps(contents, indent=2))
 
-    def _get_api_key(self, req: requests.PreparedRequest) -> (str, str):
+    def __get_api_key(self, req: requests.PreparedRequest) -> (str, str):
         config_file = os.path.join(self._config_dir, "projects.json")
 
         with open(config_file, "r") as file:
@@ -118,7 +117,38 @@ class FirebaseAuth:
             logging.warning("Falling back to default project:[host=%s, project=%s]", host, project)
             return project, config["keys"][project]
 
-    def _authenticate(self, api_key: str) -> Optional[Credential]:
+    def __refresh_token(self, api_key: str, user: Credential) -> Optional[Credential]:
+        body = {
+            "grant_type": "refresh_token",
+            "refresh_token": user.refresh_token,
+        }
+        params = {
+            "key": api_key,
+        }
+
+        resp = requests.post("https://securetoken.googleapis.com/v1/token", data=body, params=params)
+        if resp.ok:
+            data = resp.json()
+
+            if data["project_id"] != self._project:
+                logging.warning("Different project ID. got: %s, expected: %s", data["project_id"], self._project)
+
+            if data["user_id"] != user.uid:
+                logging.warning("Different UID. got: %s, expected: %s", data["user_id"], user.uid)
+
+            return Credential(
+                uid=user.uid,
+                name=user.name,
+                email=user.email,
+                avatar=user.avatar,
+                registered=user.registered,
+                created=datetime.now().timestamp(),
+                id_token=data["id_token"],
+                refresh_token=data["refresh_token"],
+                expires_in=data["expires_in"],
+            )
+
+    def __authenticate(self, api_key: str) -> Optional[Credential]:
         body = {
             "email": self._email,
             "password": self._password,
@@ -146,33 +176,6 @@ class FirebaseAuth:
                 expires_in=data.get("expiresIn"),
             )
 
-    def _refresh(self, api_key: str, user: Credential) -> Optional[Credential]:
-        body = {
-            "grant_type": "refresh_token",
-            "refresh_token": user.refresh_token,
-        }
-        params = {
-            "key": api_key,
-        }
-
-        resp = requests.post("https://securetoken.googleapis.com/v1/token", data=body, params=params)
-        if resp.ok:
-            data = resp.json()
-
-            if data["project_id"] != self._project:
-                logging.warning("Different project ID. got: %s, expected: %s", data["project_id"], self._project)
-
-            if data["user_id"] != user.uid:
-                logging.warning("Different UID. got: %s, expected: %s", data["user_id"], user.uid)
-
-            return Credential(
-                **asdict(user),
-                created=datetime.now().timestamp(),
-                id_token=data["id_token"],
-                refresh_token=data["refresh_token"],
-                expires_in=data["expires_in"],
-            )
-
 
 class FirebaseAuthPlugin(AuthPlugin):
     name = "Firebase Auth"
@@ -184,7 +187,7 @@ class FirebaseAuthPlugin(AuthPlugin):
     def __init__(self):
         pass
 
-    def get_auth(self, username: str = None, password: str = None) -> FirebaseAuth:
+    def get_auth(self, username: str = None, password: str = None) -> FirebaseAuthenticator:
         parts = self.raw_auth.split(":")
         if not 2 <= len(parts) <= 3:
             raise "Invalid auth arguments provided"
@@ -193,4 +196,4 @@ class FirebaseAuthPlugin(AuthPlugin):
         if len(parts) == 3:
             project = parts[2]
 
-        return FirebaseAuth(parts[0] or username, parts[1] or password, project=project)
+        return FirebaseAuthenticator(parts[0] or username, parts[1] or password, project=project)
